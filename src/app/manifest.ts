@@ -1,0 +1,2 @@
+import type { MetadataRoute } from "next";
+export default function manifest(): MetadataRoute.Manifest { return { name: "LifeOS – Tages-Dashboard", short_name: "LifeOS", description: "Dein persönliches Tages-Dashboard", start_url: "/dashboard", display: "standalone", background_color: "#f6faf7", theme_color: "#126a50", icons: [{ src: "/lifeos-icon.svg", sizes: "any", type: "image/svg+xml", purpose: "any" }, { src: "/lifeos-icon.svg", sizes: "any", type: "image/svg+xml", purpose: "maskable" }] }; }

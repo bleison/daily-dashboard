@@ -1,0 +1,2 @@
+import {redirect} from "next/navigation";import {requireUser,isAdmin} from "@/lib/auth";
+export const dynamic="force-dynamic";export default async function Admin(){const {user}=await requireUser();if(!await isAdmin(user.email))redirect("/dashboard");return <main className="shell"><h1>Systemübersicht</h1><p className="muted">Die Administrationsoberfläche ist noch nicht freigeschaltet. Nutzerverwaltung, Status und aggregierte Kennzahlen erfordern eine getrennte, überprüfte Betreiberrolle. Private Einträge sind bewusst nicht sichtbar.</p></main>}

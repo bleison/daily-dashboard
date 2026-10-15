@@ -1,7 +1,7 @@
-# LifeOS – Tages-Dashboard
+# LifeOS
 
-Next.js App-Router-Projekt für ein persönliches Organisationsdashboard. Enthält Supabase Auth SSR, RLS-geschützte Einträge, Aufgaben mit Fälligkeit/Priorität, Wetter, Google Kalender, optionale Apple-iCalendar-Feeds, vorlesbare Tagesübersicht und PWA-Installation.
+Next.js App-Router-Projekt für ein persönliches Organisationsdashboard. Enthalten sind Supabase Auth SSR, RLS-geschützte Aufgaben mit Fälligkeit/Priorität, Wetter, Google Calendar OAuth, optionale Apple-iCalendar-Feeds, browserseitiges Vorlesen der Tagesübersicht und PWA-Installation mit LifeOS-Symbol.
 
-Kalender-Feeds sind lesend. Apple-iCloud-Feeds müssen öffentlich geteilt werden; jeder Inhaber des Links kann sie ansehen. Das Impressum weist darauf hin, dass die Betreiberadresse noch fehlt. Bitte vor öffentlicher Nutzung die rechtlichen Angaben und alle Launch-Hinweise in [SETUP.md](SETUP.md) prüfen.
+Kalenderfeeds sind schreibgeschützt. Ein Apple-iCloud-Feed muss öffentlich geteilt werden; jeder Inhaber des Links kann Termine sehen. Migrationen und OAuth-Schlüssel sind nötig. Das Impressum enthält keine Postadresse und weist den offenen Punkt aus. Automatisierter Kontoexport/-löschung, vollständige Gewohnheits-/Ausgabenmodelle, Google-Verifizierung, Sicherheitsaudit und produktive Betriebsüberwachung fehlen. Vor öffentlicher Nutzung die rechtlichen und technischen offenen Punkte in [SETUP.md](SETUP.md) prüfen.
 
-Siehe [SETUP.md](SETUP.md) für Einrichtung, Supabase-Migrationen, Sicherheitsmodell und Launch-Blocker. Geheimnisse gehören ausschliesslich in lokale Umgebungsvariablen oder den Hosting-Secret-Store.
+Siehe [SETUP.md](SETUP.md) für Einrichtung, Sicherheitsmodell, Prüfungen und Launch-Blocker.

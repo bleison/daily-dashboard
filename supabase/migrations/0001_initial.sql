@@ -1,0 +1,18 @@
+create extension if not exists pgcrypto;
+create table if not exists public.profiles (id uuid primary key references auth.users(id) on delete cascade, display_name text, created_at timestamptz not null default now(), updated_at timestamptz not null default now());
+create table if not exists public.life_items (id uuid primary key default gen_random_uuid(), user_id uuid not null references auth.users(id) on delete cascade, kind text not null check(kind in ('task','habit','goal','note','project')), title text not null check(length(title) between 1 and 180), details text check(details is null or length(details)<=10000), completed_at timestamptz, due_at timestamptz, created_at timestamptz not null default now(), updated_at timestamptz not null default now());
+create index if not exists life_items_user_kind_created_idx on public.life_items(user_id,kind,created_at desc);
+create index if not exists life_items_user_due_idx on public.life_items(user_id,due_at) where due_at is not null;
+alter table public.profiles enable row level security; alter table public.life_items enable row level security;
+create policy profiles_select_self on public.profiles for select to authenticated using ((select auth.uid())=id);
+create policy profiles_insert_self on public.profiles for insert to authenticated with check ((select auth.uid())=id);
+create policy profiles_update_self on public.profiles for update to authenticated using ((select auth.uid())=id) with check ((select auth.uid())=id);
+create policy profiles_delete_self on public.profiles for delete to authenticated using ((select auth.uid())=id);
+create policy life_items_select_self on public.life_items for select to authenticated using ((select auth.uid())=user_id);
+create policy life_items_insert_self on public.life_items for insert to authenticated with check ((select auth.uid())=user_id);
+create policy life_items_update_self on public.life_items for update to authenticated using ((select auth.uid())=user_id) with check ((select auth.uid())=user_id);
+create policy life_items_delete_self on public.life_items for delete to authenticated using ((select auth.uid())=user_id);
+revoke all on public.profiles,public.life_items from anon; grant select,insert,update,delete on public.profiles,public.life_items to authenticated;
+create or replace function public.handle_new_user() returns trigger language plpgsql security definer set search_path=public,pg_temp as $$ begin insert into public.profiles(id) values(new.id); return new; end; $$;
+revoke all on function public.handle_new_user() from public,anon,authenticated;
+create trigger on_auth_user_created after insert on auth.users for each row execute procedure public.handle_new_user();
