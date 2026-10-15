@@ -1,4 +1,4 @@
-# LifeOS
+# Tages Dashboard
 
 Next.js App-Router-Projekt für ein persönliches Organisationsdashboard. Enthalten sind Supabase Auth SSR, RLS-geschützte Aufgaben mit Fälligkeit/Priorität, Wetter, Google Calendar OAuth, optionale Apple-iCalendar-Feeds, browserseitiges Vorlesen der Tagesübersicht und PWA-Installation mit LifeOS-Symbol.
 
