@@ -17,7 +17,7 @@ export async function GET(request:Request){
   const admin=createAdminClient();const existing=await admin.from("google_calendar_connections").select("refresh_token_encrypted").eq("user_id",user.id).maybeSingle();
   const body=new URLSearchParams({code,client_id:clientId,client_secret:clientSecret,redirect_uri:redirectUri,grant_type:"authorization_code",code_verifier:verifier});
   const tokenResponse=await fetch("https://oauth2.googleapis.com/token",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body,signal:AbortSignal.timeout(10000),cache:"no-store"});if(!tokenResponse.ok)return finish(request,"token-fehler");
-  const tokens=await tokenResponse.json() as {access_token?:string;refresh_token?:string;scope?:string;expires_in?:number};const expected="https://www.googleapis.com/auth/calendar.events.readonly";if(!tokens.access_token||!tokens.scope?.split(" ").includes(expected))return finish(request,"scope-fehler");
+  const tokens=await tokenResponse.json() as {access_token?:string;refresh_token?:string;scope?:string;expires_in?:number};const expected="https://www.googleapis.com/auth/calendar.events.owned";if(!tokens.access_token||!tokens.scope?.split(" ").includes(expected))return finish(request,"scope-fehler");
   const encrypted=tokens.refresh_token?encryptSecret(tokens.refresh_token):existing.data?.refresh_token_encrypted;if(!encrypted)return finish(request,"refresh-token-fehlt");
   const {error}=await admin.from("google_calendar_connections").upsert({user_id:user.id,refresh_token_encrypted:encrypted,scope:expected,updated_at:new Date().toISOString()},{onConflict:"user_id"});if(error)return finish(request,"speicherfehler");
   return finish(request,"verbunden");
