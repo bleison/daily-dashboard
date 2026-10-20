@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
-const scopes = "https://www.googleapis.com/auth/calendar.events.readonly";
+const scopes = "https://www.googleapis.com/auth/calendar.events.owned";
 function cookieOptions(){return {httpOnly:true as const,secure:process.env.NODE_ENV==="production",sameSite:"lax" as const,path:"/api/google",maxAge:600};}
 
 export async function GET(request:Request){
