@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { addItem, saveDashboardLayout } from "./actions";
-import { defaultDashboardLayout, dashboardColumns, dashboardRows, widgetTitles, type WidgetLayout, type WidgetId, type WidgetColor, type WidgetView } from "./layout-model";
+import { defaultDashboardLayout, dashboardColumns, dashboardRows, widgetTitles, widgetSizes, type WidgetLayout, type WidgetId, type WidgetColor, type WidgetView } from "./layout-model";
 import { DailySummaryWidget, TasksWidget } from "./dashboard-widgets";
 import CalendarWidget from "./calendar-widget";
 import AppleCalendarWidget from "./apple-calendar-widget";
@@ -49,6 +49,7 @@ export default function DashboardCanvas({ items, events, savedLayout }: { items:
   const dragRef = useRef<DragState | null>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const [dragging, setDragging] = useState<WidgetId | null>(null);
+  const [dropPreview, setDropPreview] = useState<WidgetLayout | null>(null);
   const [saveState, setSaveState] = useState("Gespeichert");
   const [voiceOpen, setVoiceOpen] = useState(false);
   const [voiceBusy, setVoiceBusy] = useState(false);
@@ -81,14 +82,25 @@ export default function DashboardCanvas({ items, events, savedLayout }: { items:
     const move = (event: PointerEvent) => {
       const drag = dragRef.current; if (!drag) return;
       const dx = Math.round((event.clientX - drag.startX) / drag.cellW), dy = Math.round((event.clientY - drag.startY) / drag.cellH);
-      const nextItem = drag.mode === "move"
+      const wanted = drag.mode === "move"
         ? { ...drag.item, x: Math.max(0, Math.min(dashboardColumns - drag.item.w, drag.item.x + dx)), y: Math.max(0, Math.min(dashboardRows - drag.item.h, drag.item.y + dy)) }
         : { ...drag.item, w: Math.max(2, Math.min(dashboardColumns - drag.item.x, drag.item.w + dx)), h: Math.max(2, Math.min(dashboardRows - drag.item.y, drag.item.h + dy)) };
+      const others = drag.before.filter(item => item.id !== drag.id);
+      let nextItem = wanted;
+      if (drag.mode === "move" && others.some(item => overlaps(wanted, item))) {
+        const candidates: WidgetLayout[] = [];
+        for (let y = 0; y <= dashboardRows - wanted.h; y++) for (let x = 0; x <= dashboardColumns - wanted.w; x++) {
+          const candidate = { ...wanted, x, y };
+          if (others.every(item => !overlaps(candidate, item))) candidates.push(candidate);
+        }
+        nextItem = candidates.sort((a,b) => (Math.abs(a.x-wanted.x)+Math.abs(a.y-wanted.y))-(Math.abs(b.x-wanted.x)+Math.abs(b.y-wanted.y)))[0] || drag.item;
+      } else if (drag.mode === "resize" && others.some(item => overlaps(wanted, item))) nextItem = drag.item;
+      setDropPreview(nextItem);
       updateLayout(drag.before.map(item => item.id === drag.id ? nextItem : item));
     };
     const finish = () => {
       const drag = dragRef.current; if (!drag) return;
-      dragRef.current = null; setDragging(null);
+      dragRef.current = null; setDragging(null); setDropPreview(null);
       const next = layoutRef.current; const moved = next.find(item => item.id === drag.id);
       if (!moved || next.some(item => item.id !== drag.id && overlaps(moved, item))) { updateLayout(drag.before); setSaveState("Blöcke dürfen sich nicht überdecken"); return; }
       void persist(next);
@@ -142,7 +154,8 @@ export default function DashboardCanvas({ items, events, savedLayout }: { items:
   }
 
   function findFreePosition(widget: WidgetId) {
-    const template = defaultDashboardLayout.find(item => item.id === widget)!;
+    const size = widgetSizes[widget];
+    const template = { id: widget, x: 0, y: 0, ...size, color: "white" as WidgetColor, view: "standard" as WidgetView };
     for (let y = 0; y <= dashboardRows - template.h; y++) for (let x = 0; x <= dashboardColumns - template.w; x++) {
       const candidate = { ...template, x, y };
       if (layoutRef.current.every(item => !overlaps(candidate, item))) return candidate;
@@ -154,7 +167,9 @@ export default function DashboardCanvas({ items, events, savedLayout }: { items:
   return <>
     <main className="dashboard-screen">
       <header className="dashboard-bar"><a className="brand" href="/dashboard"><span className="brand-mark" aria-hidden="true">✳</span>lifeos</a><div className="dashboard-bar-title"><strong>Dein Tag, dein Layout</strong><span>{saveState}</span></div><div className="dashboard-actions"><label className="mobile-widget-select">Ansicht<select value={mobileWidget} onChange={event=>setMobileWidget(event.target.value as WidgetId)}>{layout.map(v=><option key={v.id} value={v.id}>{widgetTitles[v.id]}</option>)}</select></label><button type="button" className="btn secondary voice-start" onClick={beginVoice}>◉ Spracheingabe</button><PwaInstall/><label className="add-block">＋ Block<select aria-label="Dashboard-Block hinzufügen" value="" onChange={event => { const id = event.target.value as WidgetId; if (!id) return; const item = findFreePosition(id); if (!item) { setSaveState("Kein freier Platz. Verkleinere oder blende einen Block aus."); return; } const next = [...layoutRef.current, item]; updateLayout(next); setMobileWidget(id); void persist(next); }}><option value="" disabled>Block hinzufügen</option>{missingIds.map(id=><option key={id} value={id}>{widgetTitles[id]}</option>)}</select></label><button type="button" className="btn secondary layout-reset" onClick={resetLayout} title="Canvas auf Startaufteilung zurücksetzen">Layout zurücksetzen</button><a href="/einstellungen" className="btn secondary">Einstellungen</a><form action={signOut}><button className="btn secondary signout-button">Abmelden</button></form></div></header>
-      <section className="dashboard-canvas" aria-label="Anpassbares Dashboard">
+      <section className={`dashboard-canvas${dragging ? " canvas-is-dragging" : ""}`} aria-label="Anpassbares Dashboard">
+        {dragging&&<div className="canvas-guides" aria-hidden="true">{Array.from({length:dashboardColumns*dashboardRows},(_,index)=><span key={index}/>)}</div>}
+        {dropPreview&&<div aria-hidden="true" className="canvas-drop-preview" style={{gridColumn:`${dropPreview.x+1} / span ${dropPreview.w}`,gridRow:`${dropPreview.y+1} / span ${dropPreview.h}`}}/>}
         {layout.map(item => <div key={item.id} data-mobile-active={mobileWidget===item.id} className={`canvas-tile canvas-color-${item.color}${dragging===item.id?" is-dragging":""}`} style={{gridColumn:`${item.x+1} / span ${item.w}`,gridRow:`${item.y+1} / span ${item.h}`}}>
           <div className="widget-toolbar" onPointerDown={event=>startDrag(event,item,"move")} title="Ziehen, um diesen Block zu verschieben"><span className="drag-grip" aria-hidden="true">⠿</span><strong>{widgetTitles[item.id]}</strong><details className="widget-settings" onPointerDown={event=>event.stopPropagation()}><summary aria-label={`${widgetTitles[item.id]} anpassen`}>⚙</summary><div className="widget-settings-popover"><label>Farbe<select value={item.color} onChange={event=>{const next=layoutRef.current.map(v=>v.id===item.id?{...v,color:event.target.value as WidgetColor}:v);updateLayout(next);void persist(next);}}>{colors.map(color=><option value={color.id} key={color.id}>{color.name}</option>)}</select></label><label>Darstellung<select value={item.view} onChange={event=>{const next=layoutRef.current.map(v=>v.id===item.id?{...v,view:event.target.value as WidgetView}:v);updateLayout(next);void persist(next);}}><option value="standard">Ausführlich</option><option value="compact">Kompakt</option><option value="focus">Fokus</option></select></label><button type="button" disabled={layout.length<=1} onClick={()=>{const next=layoutRef.current.filter(v=>v.id!==item.id);if(mobileWidget===item.id)setMobileWidget(next[0].id);updateLayout(next);void persist(next);}}>Block ausblenden</button></div></details></div>
           <div className={`widget-content view-${item.view}`}>
@@ -173,3 +188,4 @@ export default function DashboardCanvas({ items, events, savedLayout }: { items:
     {voiceOpen&&<div className="voice-backdrop" role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget)closeVoice();}}><section className="voice-dialog" role="dialog" aria-modal="true" aria-labelledby="voice-title"><button className="voice-close" type="button" onClick={closeVoice}>×</button><div className="section-kicker">Schnelleingabe</div><h2 id="voice-title">Was steht an?</h2><p className="muted">Sprich z. B. «Termin morgen um 14 Uhr Zahnarzt» oder «Aufgabe morgen Wäsche waschen». Die Erkennung füllt den Entwurf aus; du prüfst ihn vor dem Speichern.</p>{voiceSupported&&<button className={`btn${voiceBusy?" is-listening":""}`} type="button" onClick={beginVoice}>{voiceBusy?"● Höre zu …":"◉ Aufnahme starten"}</button>}{voiceMessage&&<p className="voice-message" role="status">{voiceMessage}</p>}{!voiceSupported&&<label className="voice-command-label">Sprechbefehl<input value={voiceCommand} onChange={event=>{setVoiceCommand(event.target.value);setVoiceDraft(parseVoice(event.target.value));}} placeholder="Windows + H drücken und sprechen"/></label>}<form onSubmit={event=>{event.preventDefault();void saveVoiceDraft(event.currentTarget);}} className="stack-form"><label htmlFor="voice-title-input">Titel</label><input id="voice-title-input" name="title" maxLength={180} required value={voiceDraft?.title||""} onChange={event=>setVoiceDraft(previous=>({kind:previous?.kind||"task",title:event.target.value,date:previous?.date||localDateOffset(0),time:previous?.time||"09:00"}))}/><label htmlFor="voice-kind">Erstellen als</label><select id="voice-kind" value={voiceDraft?.kind||"task"} onChange={event=>setVoiceDraft(previous=>({kind:event.target.value as "task"|"event",title:previous?.title||"",date:previous?.date||localDateOffset(0),time:previous?.time||"09:00"}))}><option value="task">Aufgabe</option><option value="event">Kalendertermin</option></select><div className="voice-fields"><label>Datum<input type="date" value={voiceDraft?.date||localDateOffset(0)} onChange={event=>setVoiceDraft(previous=>({kind:previous?.kind||"task",title:previous?.title||"",date:event.target.value,time:previous?.time||"09:00"}))}/></label>{voiceDraft?.kind==="event"&&<label>Uhrzeit<input type="time" value={voiceDraft.time} onChange={event=>setVoiceDraft(previous=>previous?{...previous,time:event.target.value}:null)}/></label>}</div><button className="btn" disabled={!voiceDraft?.title.trim()}>{voiceDraft?.kind==="event"?"Termin speichern":"Aufgabe speichern"}</button></form><p className="voice-privacy">Die Spracheingabe hängt vom Browser ab. Je nach Browser kann Audio an dessen Spracherkennungsdienst übertragen werden; LifeOS speichert keine Audioaufnahme.</p></section></div>}
   </>;
 }
+
